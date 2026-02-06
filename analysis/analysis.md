@@ -29,7 +29,7 @@ Key characteristics:
 The structure is designed to support consistent KPI computation and comparison.
 
 <p align="center">
-  <img src="analysis/diagram_view.png" width="900">
+  <img src="diagram_view.png" width="800">
 </p>
 
 ---
