@@ -1,4 +1,4 @@
-# MART Layer — KPI Framework, Definitions and Interpretation
+# MART Layer — KPI Framework, Definitions and Interpretation (Final, Frozen)
 
 This document consolidates and supersedes all previous KPI-related documentation.  
 It integrates:
@@ -95,8 +95,8 @@ KPIs describe **orthogonal dimensions** of performance and must not be conflated
 |-----------|--------------------------------------|
 | Frequency | How often delays occur               |
 | Severity  | How long delays last when they occur |
-| Tail risk | Exposure to extreme delays           |
 | Impact    | Operational prioritization proxy     |
+| Tail risk | Exposure to extreme delays           |
 
 Joint interpretation is mandatory.
 
@@ -106,7 +106,7 @@ Joint interpretation is mandatory.
 
 ---
 
-### KPI 1 — Delay Frequency
+### KPI 1 — Delay Frequency (Temporal)
 
 **Definition**
 - Name: `delayed_flights_pct`
@@ -115,7 +115,7 @@ Joint interpretation is mandatory.
 - Population: all valid flights
 - Temporal KPI (only KPI computed year-over-year)
 
-This measures **how often** disruption occurs, not its magnitude.
+This KPI measures **how often** disruption occurs, not its magnitude.
 
 **System-level baseline (airports)**
 
@@ -132,9 +132,14 @@ Constrained interpretation:
 - Post-2021 trend is monotonically increasing
 - 2023 is worse than 2019
 
+**System conclusion**
+
+> Post-COVID flight operations have not returned to pre-COVID reliability.  
+> Delay frequency is structurally higher.
+
 ---
 
-### KPI 2 — Delay Severity (Conditional)
+### KPI 2 — Delay Severity (Conditional, Structural)
 
 **Definition**
 - Name: `avg_delay_severity_[min]`
@@ -142,8 +147,8 @@ Constrained interpretation:
 - Grain: entity (cross-year)
 - Structural KPI
 
-This measures **how bad delays are when they happen**.  
-Not comparable to frequency.
+This KPI measures **how bad delays are when they happen**.  
+It is not comparable to frequency.
 
 **Top severity observations (illustrative)**
 
@@ -155,47 +160,49 @@ Not comparable to frequency.
 | airport | ROC | 48.21 | 5,106 |
 | airport | LGA | 47.73 | 59,923 |
 
+Key observation:
+> Severity varies widely across entities and is not proportional to delay frequency.
+
 ---
 
 ### KPI 3 — Severity Distribution (Structural)
 
-This KPI is interpreted visually to assess **severity vs volume** across entities.
+This KPI is interpreted visually to assess **severity vs traffic volume**.
 
 <div style="text-align:center;">
   <img src="KPI3.png" style="max-width:110%;" />
 </div>
 
----
-
-### KPI 4 — Tail Risk
-
-**Definition**
-- Names:
-  - `p90_delay_[min]`
-  - `p95_delay_[min]`
-- Metric: high percentiles of arrival delay, late flights only
-- Grain: entity (cross-year)
-- Structural KPI
-
-This captures **extreme-event exposure**, not central tendency.
-
-**Selected airport tail comparison**
-
-| Airport | p95 delay (min) | avg severity (min) | delay frequency (%) |
-|--------|-----------------|--------------------|---------------------|
-| DAL | 100 | 29.70 | 37.23 |
-| EWR | 170 | 47.33 | 36.87 |
-| HNL | 80 | 22.44 | 36.85 |
-| JFK | 170 | 47.02 | 31.51 |
-| LGA | 170 | 47.73 | 29.49 |
+Observed pattern:
+- High-volume entities can exhibit both low and very high severity
+- Severity is not explained by volume alone
 
 Conclusion:
-> Extreme delays are not noise.  
-> The tail is a structural property of the system.
+> Delay severity is a structural property, not a scale effect.
 
 ---
 
-### KPI 5 — Expected Delay Impact
+### KPI 4 — Frequency vs Severity (Combined Reading)
+
+This KPI combines **delay frequency** and **delay severity** to identify behavioral clusters.
+
+<div style="text-align:center;">
+  <img src="KPI6.png" style="max-width:110%;" />
+</div>
+
+Observed clusters:
+- high frequency / low severity
+- moderate frequency / high severity
+- entities with disproportionate damage per delay
+
+Conclusion:
+> Who delays often is not necessarily who causes the most damage.
+
+This KPI establishes the **behavioral clusters** used in subsequent analysis.
+
+---
+
+### KPI 5 — Expected Delay Impact (Structural)
 
 **Definition**
 - Name: `expected_delay_impact_[min/100_flights]`
@@ -216,23 +223,74 @@ Purpose:
 | EWR | 1,810 | 50,808 |
 | SJU | 1,750 | 12,721 |
 
+Interpretation:
+> This KPI identifies where intervention yields the highest potential benefit,  
+> independent of causal attribution.
+
 ---
 
-### KPI 6 — Frequency vs Severity (Combined Reading)
+### KPI 6 — Tail Risk (Structural, Validated)
 
-This KPI combines **frequency** and **severity** to classify operational behavior.
+**Definition**
+- Names:
+  - `p90_delay_[min]`
+  - `p95_delay_[min]`
+- Metric: high percentiles of arrival delay, late flights only
+- Grain: entity (cross-year)
+- Structural KPI
 
-<div style="text-align:center;">
-  <img src="KPI6.png" style="max-width:110%;" />
-</div>
+This KPI captures **exposure to extreme delays**, not central tendency.
 
-Observed patterns:
-- high-frequency / low-severity entities
-- moderate-frequency / high-severity entities
-- structurally fragile airports independent of volume
+#### Global p95 Distribution (Eligibility ≥ 20k flights)
+
+| entity_type | p50_p95 | p75_p95 | p90_p95 |
+|------------|---------|---------|---------|
+| airline | 150 | 160 | 174 |
+| airport | 130 | 150 | 161 |
+
+**Formal interpretation scale**
+
+- p95 ≤ p50 → high structural resilience  
+- p50 < p95 ≤ p75 → intermediate resilience  
+- p95 > p75 → structural fragility  
+- p95 ≥ p90 → extreme fragility  
+
+---
+
+#### Selected Airport Comparison (Validated)
+
+| Airport | p95 (min) | Position vs distribution |
+|--------|-----------|--------------------------|
+| HNL | 80 | ≪ p50 |
+| DAL | 100 | ≪ p50 |
+| SEA | 100 | ≪ p50 |
+| SAN | 120 | < p50 |
+| JFK | 170 | > p90 |
+| EWR | 170 | > p90 |
+| LGA | 170 | > p90 |
 
 Conclusion:
-> Who delays often is not necessarily who causes the most damage.
+> Airports differ sharply in extreme-delay exposure.  
+> Tail behavior is a stable structural property.
+
+---
+
+#### Selected Airline Comparison (Validated)
+
+| Airline | p95 (min) | Position vs distribution |
+|--------|-----------|--------------------------|
+| HA | 60 | ≪ p50 |
+| AS | 100 | ≪ p50 |
+| WN | 100 | ≪ p50 |
+| QX | 100 | ≪ p50 |
+| OO | 170 | ≈ p90 |
+| G4 | 170 | ≈ p90 |
+| B6 | 180 | > p90 |
+| YV | 180 | > p90 |
+
+Conclusion:
+> Heavy tails are not noise.  
+> Some airlines are structurally exposed to extreme delays even when frequency is moderate.
 
 ---
 
@@ -247,7 +305,7 @@ Every consumption view must expose:
 
 ---
 
-### Observed airport volume distribution
+### Observed Airport Volume Distribution
 
 | Statistic | Operated flights |
 |----------|------------------|
@@ -261,7 +319,7 @@ Distribution is strongly right-skewed.
 
 ---
 
-### Cutoff by KPI family
+### Cutoff by KPI Family
 
 | KPI family | Minimum flights |
 |-----------|-----------------|

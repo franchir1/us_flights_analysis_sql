@@ -13,7 +13,8 @@
    Grain:
    - airport × year
    Purpose:
-   - understand global temporal dynamics
+   - establish the global temporal baseline
+   - identify system-level shocks and trends
    ============================================================ */
 
 SELECT
@@ -34,8 +35,14 @@ ORDER BY year;
 2022,"36.39"
 2023,"38.47"
 
+
 /* ============================================================
-   2) FREQUENCY VARIANCE DISTRIBUTION (airport vs airline)
+   2) FREQUENCY VARIANCE DISTRIBUTION (AIRPORT vs AIRLINE)
+   Grain:
+   - entity (cross-year)
+   Purpose:
+   - identify where temporal instability originates
+   - compare variance dynamics across entity types
    ============================================================ */
 
 WITH entity_iqr AS (
@@ -73,7 +80,8 @@ ORDER BY entity_type;
    Grain:
    - entity (cross-year)
    Purpose:
-   - isolate severity independently from frequency
+   - measure delay magnitude independently from frequency
+   - identify structural damage amplifiers
    ============================================================ */
 
 SELECT
@@ -199,151 +207,13 @@ ORDER BY avg_delay_severity_min DESC;
 "airline","HA","20.91","31698"
 
 
-
 /* ============================================================
-   4) TAIL
+   4) COMBINED READING — FREQUENCY vs SEVERITY
    Grain:
    - entity (cross-year)
    Purpose:
-   - assess exposure to extreme delays
-   ============================================================ */
-SELECT
-    entity_code AS airport,
-    MAX(CASE
-        WHEN kpi_family = 'tail_risk'
-         AND kpi_name   = 'p95_delay_[min]'
-        THEN kpi_value
-    END) AS p95_delay_min,
-
-    MAX(CASE
-        WHEN kpi_family = 'severity'
-         AND kpi_name   = 'avg_delay_severity_[min]'
-        THEN kpi_value
-    END) AS avg_delay_severity_min,
-
-    ROUND(
-        AVG(CASE
-            WHEN kpi_family = 'frequency'
-             AND kpi_name   = 'delayed_flights_pct'
-            THEN kpi_value
-        END),
-        2
-    ) AS delay_frequency_pct,
-
-    MAX(operated_flights) AS operated_flights
-FROM mart.kpi_delay_canonical
-WHERE entity_type = 'airport'
-  AND (
-        (kpi_family = 'tail_risk'  AND operated_flights >= 20000)
-     OR (kpi_family = 'severity'   AND operated_flights >= 5000)
-     OR (kpi_family = 'frequency'  AND operated_flights >= 1000)
-  )
-  AND entity_code IN ('HNL','SAN','DAL','SEA','JFK','EWR','LGA')
-GROUP BY entity_code;
-
-SELECT
-    entity_code AS airline,
-    MAX(CASE
-        WHEN kpi_family = 'tail_risk'
-         AND kpi_name   = 'p95_delay_[min]'
-        THEN kpi_value
-    END) AS p95_delay_min,
-
-    MAX(CASE
-        WHEN kpi_family = 'severity'
-         AND kpi_name   = 'avg_delay_severity_[min]'
-        THEN kpi_value
-    END) AS avg_delay_severity_min,
-
-    ROUND(
-        AVG(CASE
-            WHEN kpi_family = 'frequency'
-             AND kpi_name   = 'delayed_flights_pct'
-            THEN kpi_value
-        END),
-        2
-    ) AS delay_frequency_pct,
-
-    MAX(operated_flights) AS operated_flights
-FROM mart.kpi_delay_canonical
-WHERE entity_type = 'airline'
-  AND (
-        (kpi_family = 'tail_risk'  AND operated_flights >= 20000)
-     OR (kpi_family = 'severity'   AND operated_flights >= 5000)
-     OR (kpi_family = 'frequency'  AND operated_flights >= 1000)
-  )
-  AND entity_code IN ('HA','WN','AS','QX','B6','YV','OO','G4')
-GROUP BY entity_code;
-
-"airport","p95_delay_min","avg_delay_severity_min","delay_frequency_pct","operated_flights"
-"DAL","100","29.70","37.23","29575"
-"EWR","170","47.33","36.87","50808"
-"HNL","80","22.44","36.85","22810"
-"JFK","170","47.02","31.51","48914"
-"LGA","170","47.73","29.49","59923"
-"SAN","120","33.23","31.52","35499"
-"SEA","100","29.13","34.61","69615"
-
-
-"airline","p95_delay_min","avg_delay_severity_min","delay_frequency_pct","operated_flights"
-"AS","100","27.82","35.85","98294"
-"B6","180","51.30","39.53","109447"
-"G4","170","46.41","43.18","50179"
-"HA","60","20.91","39.85","31698"
-"OO","170","45.78","29.54","334986"
-"QX","100","24.89","35.26","20237"
-"WN","100","28.82","35.64","555869"
-"YV","180","48.41","32.47","62477"
-
-
-/* ============================================================
-   5) EXPECTED DELAY IMPACT — PRIORITY RANKING
-   Grain:
-   - entity (cross-year)
-   Purpose:
-   - operational prioritization, not explanation
-   ============================================================ */
-
-SELECT
-    entity_code,
-    kpi_value AS expected_delay_impact_min_per_100_flights,
-    operated_flights
-FROM mart.kpi_delay_canonical
-  WHERE kpi_family = 'impact'
-  AND kpi_name   = 'expected_delay_impact_[min/100_flights]'
-  AND operated_flights >= 5000
-ORDER BY expected_delay_impact_min_per_100_flights DESC
-LIMIT 20;
-
-"entity_code","expected_delay_impact_min_per_100_flights","operated_flights"
-"B6","2090","109447"
-"G4","2030","50179"
-"F9","1910","62712"
-"EWR","1810","50808"
-"SJU","1750","12721"
-"SRQ","1720","5838"
-"MCO","1670","62027"
-"FLL","1660","39093"
-"PBI","1660","10603"
-"YV","1610","62477"
-"MIA","1600","40910"
-"EV","1600","17951"
-"NK","1570","93200"
-"JFK","1560","48914"
-"AA","1550","371218"
-"DFW","1550","125774"
-"LGA","1530","59923"
-"ORD","1490","118208"
-"BHM","1480","6837"
-"DEN","1470","116362"
-
-
-/* ============================================================
-   6) COMBINED READING — FREQUENCY vs SEVERITY
-   Grain:
-   - entity
-   Purpose:
-   - classify operational behavior
+   - identify behavioral clusters
+   - separate frequency-driven vs severity-driven profiles
    ============================================================ */
 
 WITH frequency AS (
@@ -488,3 +358,167 @@ ORDER BY s.entity_type, delay_frequency_pct DESC;
 "airport","DSM","27.93","43.68"
 "airport","TYS","27.90","40.40"
 "airport","MSP","27.47","38.70"
+
+
+/* ============================================================
+   5) TAIL RISK — CLUSTER VALIDATION
+   Grain:
+   - entity (cross-year)
+   Purpose:
+   - validate behavioral clusters using extreme delays
+   - compare tail exposure across selected high-volume entities
+   ============================================================ */
+
+SELECT
+    entity_code AS airport,
+    MAX(CASE
+        WHEN kpi_family = 'tail_risk'
+         AND kpi_name   = 'p95_delay_[min]'
+        THEN kpi_value
+    END) AS p95_delay_min,
+
+    MAX(CASE
+        WHEN kpi_family = 'severity'
+         AND kpi_name   = 'avg_delay_severity_[min]'
+        THEN kpi_value
+    END) AS avg_delay_severity_min,
+
+    ROUND(
+        AVG(CASE
+            WHEN kpi_family = 'frequency'
+             AND kpi_name   = 'delayed_flights_pct'
+            THEN kpi_value
+        END),
+        2
+    ) AS delay_frequency_pct,
+
+    MAX(operated_flights) AS operated_flights
+FROM mart.kpi_delay_canonical
+WHERE entity_type = 'airport'
+  AND (
+        (kpi_family = 'tail_risk'  AND operated_flights >= 20000)
+     OR (kpi_family = 'severity'   AND operated_flights >= 5000)
+     OR (kpi_family = 'frequency'  AND operated_flights >= 1000)
+  )
+  AND entity_code IN ('HNL','SAN','DAL','SEA','JFK','EWR','LGA')
+GROUP BY entity_code;
+
+SELECT
+    entity_code AS airline,
+    MAX(CASE
+        WHEN kpi_family = 'tail_risk'
+         AND kpi_name   = 'p95_delay_[min]'
+        THEN kpi_value
+    END) AS p95_delay_min,
+
+    MAX(CASE
+        WHEN kpi_family = 'severity'
+         AND kpi_name   = 'avg_delay_severity_[min]'
+        THEN kpi_value
+    END) AS avg_delay_severity_min,
+
+    ROUND(
+        AVG(CASE
+            WHEN kpi_family = 'frequency'
+             AND kpi_name   = 'delayed_flights_pct'
+            THEN kpi_value
+        END),
+        2
+    ) AS delay_frequency_pct,
+
+    MAX(operated_flights) AS operated_flights
+FROM mart.kpi_delay_canonical
+WHERE entity_type = 'airline'
+  AND (
+        (kpi_family = 'tail_risk'  AND operated_flights >= 20000)
+     OR (kpi_family = 'severity'   AND operated_flights >= 5000)
+     OR (kpi_family = 'frequency'  AND operated_flights >= 1000)
+  )
+  AND entity_code IN ('HA','WN','AS','QX','B6','YV','OO','G4')
+GROUP BY entity_code;
+
+"airport","p95_delay_min","avg_delay_severity_min","delay_frequency_pct","operated_flights"
+"DAL","100","29.70","37.23","29575"
+"EWR","170","47.33","36.87","50808"
+"HNL","80","22.44","36.85","22810"
+"JFK","170","47.02","31.51","48914"
+"LGA","170","47.73","29.49","59923"
+"SAN","120","33.23","31.52","35499"
+"SEA","100","29.13","34.61","69615"
+
+
+"airline","p95_delay_min","avg_delay_severity_min","delay_frequency_pct","operated_flights"
+"AS","100","27.82","35.85","98294"
+"B6","180","51.30","39.53","109447"
+"G4","170","46.41","43.18","50179"
+"HA","60","20.91","39.85","31698"
+"OO","170","45.78","29.54","334986"
+"QX","100","24.89","35.26","20237"
+"WN","100","28.82","35.64","555869"
+"YV","180","48.41","32.47","62477"
+
+-- global p95 distribution (reference scale for relative resilience)
+
+SELECT
+  entity_type,
+  percentile_cont(0.50) WITHIN GROUP (ORDER BY p95_delay) AS p50_p95,
+  percentile_cont(0.75) WITHIN GROUP (ORDER BY p95_delay) AS p75_p95,
+  percentile_cont(0.90) WITHIN GROUP (ORDER BY p95_delay) AS p90_p95
+FROM (
+  SELECT
+    entity_type,
+    entity_code,
+    kpi_value AS p95_delay
+  FROM mart.kpi_delay_canonical
+  WHERE kpi_family = 'tail_risk'
+    AND kpi_name   = 'p95_delay_[min]'
+    AND operated_flights >= 20000
+) t
+GROUP BY entity_type;
+
+"entity_type","p50_p95","p75_p95","p90_p95"
+"airline",150,160,174
+"airport",130,150,161
+
+
+/* ============================================================
+   6) EXPECTED DELAY IMPACT — PRIORITY RANKING
+   Grain:
+   - entity (cross-year)
+   Purpose:
+   - identify where operational intervention has highest leverage
+   - combine frequency, severity, and volume
+   ============================================================ */
+
+SELECT
+    entity_code,
+    kpi_value AS expected_delay_impact_min_per_100_flights,
+    operated_flights
+FROM mart.kpi_delay_canonical
+WHERE kpi_family = 'impact'
+  AND kpi_name   = 'expected_delay_impact_[min/100_flights]'
+  AND operated_flights >= 5000
+ORDER BY expected_delay_impact_min_per_100_flights DESC
+LIMIT 20;
+
+"entity_code","expected_delay_impact_min_per_100_flights","operated_flights"
+"B6","2090","109447"
+"G4","2030","50179"
+"F9","1910","62712"
+"EWR","1810","50808"
+"SJU","1750","12721"
+"SRQ","1720","5838"
+"MCO","1670","62027"
+"FLL","1660","39093"
+"PBI","1660","10603"
+"YV","1610","62477"
+"MIA","1600","40910"
+"EV","1600","17951"
+"NK","1570","93200"
+"JFK","1560","48914"
+"AA","1550","371218"
+"DFW","1550","125774"
+"LGA","1530","59923"
+"ORD","1490","118208"
+"BHM","1480","6837"
+"DEN","1470","116362"
